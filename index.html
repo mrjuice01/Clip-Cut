@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClipCut — Audio &amp; Video Snippet Clipper</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12h2l2-7 4 14 4-10 2 5 2-2h4" />
+            </svg>
+          </div>
+          <div>
+            <h1>ClipCut</h1>
+            <p class="subtitle">Extract &amp; save audio clips locally in your browser</p>
+          </div>
+        </div>
+
+        <div class="topbar-actions" id="topbarActions" hidden>
+          <span class="file-pill" id="fileNameBadge"></span>
+          <button type="button" class="btn btn-ghost btn-sm" id="changeFileBtn">Load Another File</button>
+        </div>
+      </header>
+
+      <div class="alert alert-error" id="errorBanner" hidden role="alert">
+        <span id="errorText"></span>
+        <button type="button" class="icon-btn" id="dismissErrorBtn" aria-label="Dismiss error">&times;</button>
+      </div>
+
+      <!-- Empty / Upload State -->
+      <section class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload audio or video file">
+        <input
+          type="file"
+          id="fileInput"
+          accept="audio/*,video/*,.mp3,.wav,.m4a,.ogg,.flac,.mp4,.webm,.mov"
+          hidden
+        />
+        <div class="dropzone-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+        </div>
+        <h2>Drop an audio or video file here</h2>
+        <p>Supports MP3, WAV, M4A, OGG, FLAC, MP4, WebM, and MOV — 100% private, processed on your device.</p>
+        <button type="button" class="btn btn-primary" id="browseBtn">Choose File</button>
+      </section>
+
+      <!-- Loading State -->
+      <section class="loading-card" id="loadingCard" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <p id="loadingText">Decoding audio track...</p>
+      </section>
+
+      <!-- Main Editor Workspace -->
+      <main class="workspace" id="workspace" hidden>
+        <!-- Waveform Card -->
+        <section class="panel waveform-panel">
+          <div class="panel-header">
+            <div class="meta-row">
+              <span class="meta-label">Playhead</span>
+              <span class="mono time-readout" id="playheadReadout">0:00.00</span>
+              <span class="meta-sep">/</span>
+              <span class="mono muted" id="totalDurationReadout">0:00.00</span>
+            </div>
+
+            <div class="zoom-controls">
+              <span class="meta-label">Zoom</span>
+              <button type="button" class="btn btn-ghost btn-xs" id="zoomOutBtn" title="Zoom out">−</button>
+              <input type="range" id="zoomSlider" min="1" max="40" step="0.5" value="1" aria-label="Waveform zoom" />
+              <button type="button" class="btn btn-ghost btn-xs" id="zoomInBtn" title="Zoom in">+</button>
+              <button type="button" class="btn btn-ghost btn-xs" id="zoomFitBtn" title="Fit to width">Fit</button>
+            </div>
+          </div>
+
+          <div class="waveform-scroll" id="waveformScroll">
+            <canvas id="waveformCanvas"></canvas>
+          </div>
+
+          <div class="waveform-hint">
+            Drag on the waveform to select a region · Drag handles to fine-tune · Click ruler to scrub · <kbd>Ctrl</kbd> + Scroll to zoom
+          </div>
+        </section>
+
+        <!-- Transport & Selection Controls -->
+        <section class="panel controls-panel">
+          <div class="controls-row transport-row">
+            <div class="btn-group">
+              <button type="button" class="btn btn-primary" id="playPauseBtn" title="Play / Pause (Space)">
+                <span id="playPauseIcon">▶</span>
+                <span id="playPauseLabel">Play</span>
+              </button>
+              <button type="button" class="btn btn-secondary" id="playSelectionBtn" title="Play selected region">
+                ▶ Selection
+              </button>
+              <button type="button" class="btn btn-toggle" id="loopToggleBtn" aria-pressed="false" title="Loop selection (L)">
+                ↻ Loop: Off
+              </button>
+            </div>
+
+            <div class="speed-group" role="group" aria-label="Playback speed">
+              <span class="meta-label">Speed</span>
+              <button type="button" class="speed-btn" data-rate="0.5">0.5×</button>
+              <button type="button" class="speed-btn active" data-rate="1">1×</button>
+              <button type="button" class="speed-btn" data-rate="1.5">1.5×</button>
+              <button type="button" class="speed-btn" data-rate="2">2×</button>
+            </div>
+          </div>
+
+          <div class="controls-row selection-row">
+            <div class="time-field">
+              <label for="startInput">Start</label>
+              <div class="time-input-group">
+                <button type="button" class="nudge-btn" data-target="start" data-delta="-0.1" title="Start −0.1s">−.1</button>
+                <input type="text" id="startInput" class="mono" value="0:00.00" aria-label="Selection start time" />
+                <button type="button" class="nudge-btn" data-target="start" data-delta="0.1" title="Start +0.1s">+.1</button>
+                <button type="button" class="btn btn-ghost btn-xs" id="setInBtn" title="Set start at playhead (I)">In</button>
+              </div>
+            </div>
+
+            <div class="time-field">
+              <label for="endInput">End</label>
+              <div class="time-input-group">
+                <button type="button" class="nudge-btn" data-target="end" data-delta="-0.1" title="End −0.1s">−.1</button>
+                <input type="text" id="endInput" class="mono" value="0:00.00" aria-label="Selection end time" />
+                <button type="button" class="nudge-btn" data-target="end" data-delta="0.1" title="End +0.1s">+.1</button>
+                <button type="button" class="btn btn-ghost btn-xs" id="setOutBtn" title="Set end at playhead (O)">Out</button>
+              </div>
+            </div>
+
+            <div class="clip-length-box">
+              <span class="meta-label">Selection</span>
+              <span class="mono length-value" id="selectionDurationReadout">0:00.00</span>
+            </div>
+
+            <button type="button" class="btn btn-accent save-clip-btn" id="saveClipBtn" title="Save current selection to clip list (S)">
+              + Save Clip
+            </button>
+          </div>
+        </section>
+
+        <!-- Saved Clips Queue -->
+        <section class="panel clips-panel">
+          <div class="clips-header">
+            <div class="clips-title-group">
+              <h2>Saved Clips <span class="count-badge" id="clipCountBadge">0</span></h2>
+            </div>
+
+            <div class="export-bar">
+              <div class="segmented" role="group" aria-label="Export format">
+                <button type="button" class="seg-btn active" data-format="wav">WAV</button>
+                <button type="button" class="seg-btn" data-format="mp3">MP3</button>
+              </div>
+
+              <label class="fade-toggle" title="Apply 10ms fade-in/out to prevent clicks at cut points">
+                <input type="checkbox" id="fadeCheckbox" checked />
+                <span>10ms Fade</span>
+              </label>
+
+              <button type="button" class="btn btn-primary btn-sm" id="downloadAllBtn" disabled>
+                Download All (.zip)
+              </button>
+            </div>
+          </div>
+
+          <div class="clips-empty" id="clipsEmpty">
+            Highlight a section on the waveform and click <strong>+ Save Clip</strong> (or press <kbd>S</kbd>) to build your clip list.
+          </div>
+
+          <ul class="clips-list" id="clipsList" aria-label="Saved audio clips"></ul>
+        </section>
+
+        <footer class="shortcuts-bar">
+          <span><kbd>Space</kbd> Play/Pause</span>
+          <span><kbd>L</kbd> Loop Selection</span>
+          <span><kbd>I</kbd> Set Start</span>
+          <span><kbd>O</kbd> Set End</span>
+          <span><kbd>S</kbd> Save Clip</span>
+        </footer>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
